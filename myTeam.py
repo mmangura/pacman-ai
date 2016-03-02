@@ -150,8 +150,6 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     return {'successorScore': 1.0}
 
-
-
 class BaseOffensiveReflexAgent(ReflexCaptureAgent):
   """
   A reflex agent that seeks food. This is an agent
@@ -181,9 +179,20 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   could be like.  It is not the best or only way to make
   such an agent.
   """
-  intitalCapsuleCount = (self.getCapsulesYouAreDefending(gameState)).count(True)
-  newCapsuleCount = intitalCapsuleCount
-  scaredTimer = 0
+
+  # MINIMAX AGENT SO THAT DEF AGENT CAN PREDICT THE ACTIONS OF THE INVADER
+  def chooseAction(self, gameState):
+    actions = gameState.getLegalActions(self.index)
+    values = [self.evaluate(gameState, a) for a in actions]
+
+    maxValue = max(values)
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+    return random.choice(bestActions)
+
+  def evaluate(self, gameState, action):
+    features = self.getFeatures(gameState, action)
+    weights = self.getWeights(gameState, action)
+    return features * weights
 
   def getFeatures(self, gameState, action):
     features = util.Counter()
@@ -209,19 +218,16 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     if action == rev: features['reverse'] = 1
 
     # Compute FoodToDefend Locations
-    features['NumFoodToDefend'] = (self.getFoodYouAreDefending(gameState)).count(True)
+    features['NumFoodToDefend'] = (self.getFoodYouAreDefending(successor)).count(True)
 
-    # Compute Capsule Locations
-    #features['NumCapsulesToDefend'] = (self.getCapsulesYouAreDefending(gameState)).count(True)
-    newCapsuleCount = (self.getCapsulesYouAreDefending(gameState)).count(True)
-    if intitalCapsuleCount > newCapsuleCount:
-      startTimer()
+    # Compute ScaredTimer for this Agent
+    features['scaredTimer'] = myState.scaredTimer
     
     """
-    features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'CapsulesToDefend']
+    features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'scaredTimer']
     """
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'NumFoodToDefend': 50, 'NumCapsulesToDefend': 20}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'NumFoodToDefend': 50, 'scaredTimer': 20}
 
