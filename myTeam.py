@@ -271,12 +271,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     # Compute ScaredTimer for this Agent and if scared, then invaderDistance is maximized
     features['scaredTimer'] = myState.scaredTimer
-<<<<<<< HEAD
 
     if features['scaredTimer'] > 0:
       features['invaderDistance'] = -features['invaderDistance']
     
-=======
     if features['scaredTimer'] > 0:
       features['invaderDistance'] = -features['invaderDistance']
 
@@ -290,8 +288,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       self.patrolQueue.pop()
 
     features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[0])
-    print self.patrolQueue
->>>>>>> 908ea279327ebff1db0279b5123f4fda5081522e
+    
     """
     features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'scaredTimer', 'patrolDistance']
     """
