@@ -161,21 +161,35 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     successor = self.getSuccessor(gameState, action)
     features['successorScore'] = self.getScore(successor)
 
-
+    #gets actions such as stop and reverse for the attacking agent
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
-
     if action == Directions.STOP: features['Ostop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['Oreverse'] = 1
 
+    #stays away from any ghost when a ghost
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     defenders = [a for a in enemies if not(a.isPacman) and a.getPosition() != None]
+
     features['numDefenders'] = len(defenders)
     if len(defenders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
       features['defenderDistance'] = min(dists)
 
+    temp = self.getOpponents(successor)    
+    enemyState = successor.getAgentState(temp[0])
+
+    features['enemyScaredTimer'] = enemyState.scaredTimer
+
+
+    #testing attacking stance
+    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    features['numInvaders2'] = len(invaders)
+    if len(invaders) > 0:
+      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      features['invaderDistance2'] = min(dists)
 
 
     # Compute distance to the nearest food
@@ -183,11 +197,14 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     if (len(foodList) > 0): # This should always be True,  but better safe than sorry
       myPos = successor.getAgentState(self.index).getPosition()
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-      features['distanceToFood'] = minDistance
+    if features['enemyScaredTimer'] > 0:
+        features['distanceToFood'] = minDistance + 10
+    else:      
+        features['distanceToFood'] = minDistance
     return features
 
   def getWeights(self, gameState, action):
-    return {'successorScore': 100, 'distanceToFood': -1, 'defenderDistance': 10, 'Ostop': -100, 'Oreverse': -2}
+    return {'numInvaders2': -1000, 'invaderDistance2': -2, 'successorScore': 100, 'distanceToFood': -1, 'defenderDistance': 2, 'Ostop': -100, 'Oreverse': -2, 'enemyScaredTimer': 20}
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
   """
