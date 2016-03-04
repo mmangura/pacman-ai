@@ -221,8 +221,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     myPos = gameState.getAgentState(self.index).getPosition()
     foodToDefend = self.getFoodYouAreDefending(gameState).asList() # Make a list of Locations to Patrol
     farthestFood = self.findFarthest(myPos, foodToDefend)
-    self.patrolQueue.append(farthestFood)
-    print self.patrolQueue
+    self.patrolQueue.insert(0, farthestFood)
     
   def chooseAction(self, gameState):
     actions = gameState.getLegalActions(self.index)
@@ -271,30 +270,18 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     # Compute ScaredTimer for this Agent and if scared, then invaderDistance is maximized
     features['scaredTimer'] = myState.scaredTimer
-<<<<<<< HEAD
-
-    if features['scaredTimer'] > 0:
-      features['invaderDistance'] = -features['invaderDistance']
-    
-=======
     if features['scaredTimer'] > 0:
       features['invaderDistance'] = -features['invaderDistance']
 
-    # Patrol Features
-    if features['numInvaders'] is 0:
-      self.patrolQueue.insert(0, self.findFarthest(myPos, foodToDefendLocations))
+    features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[-1])
+    if features['patrolDistance'] is 0:
       self.patrolQueue.pop()
-    else:
-      # If DefenseAgent notices an Invader, log that Invader's location!
-      self.patrolQueue.insert(0, invaders[0].getPosition())
-      self.patrolQueue.pop()
+      self.patrolQueue.insert(0, self.findClosest(myPos, foodToDefendLocations))
 
-    features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[0])
-    print self.patrolQueue
->>>>>>> 908ea279327ebff1db0279b5123f4fda5081522e
     """
     features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'scaredTimer', 'patrolDistance']
     """
+
     return features
 
   def getWeights(self, gameState, action):
