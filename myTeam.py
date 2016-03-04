@@ -198,7 +198,7 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
       myPos = successor.getAgentState(self.index).getPosition()
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
     if features['enemyScaredTimer'] > 0:
-        features['distanceToFood'] = minDistance + 10
+        features['distanceToFood'] = minDistance * 10
     else:      
         features['distanceToFood'] = minDistance
     return features
