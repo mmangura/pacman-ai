@@ -273,12 +273,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     foodToDefendLocations = self.getFoodYouAreDefending(successor).asList()
     features['FoodToDefend'] = len(foodToDefendLocations)
 
+    features['scaredTimer'] = myState.scaredTimer
     # Compute ScaredTimer for this Agent and if scared, then just keep close enough to invader
     if myState.scaredTimer > 0:
       # see if invader is 3 tiles away
       if features['invaderDistance'] <= 4:
         features['invaderDistance'] = -features['invaderDistance']
-
 
     features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[-1])
     if features['patrolDistance'] is 0:
