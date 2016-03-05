@@ -175,8 +175,7 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     features['numDefenders'] = len(defenders)
     if len(defenders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-      if min(dists) < 5:
-        features['defenderDistance'] = min(dists)
+      features['defenderDistance'] = min(dists)
 
     temp = self.getOpponents(successor)    
     enemyState = successor.getAgentState(temp[0])
@@ -202,30 +201,21 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
       features['invaderDistance1'] = 0
 
 
-    #keeps distance away from enemy when scared
-    if myState.scaredTimer > 0:
-        if features['invaderDistance2'] <= 4:
-          features['invaderDistance2'] = -features['invaderDistance2']
-
-    if (features['invaderDistance2'] > 10 and myState.isPacman):
-      features['numInvaders2'] = 0
-      features['invaderDistance2'] = 0
-
-
 
     # Compute distance to the nearest food
     foodList = self.getFood(successor).asList()
     if (len(foodList) > 0): # This should always be True,  but better safe than sorry
       myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      minDistance = min([self.getMazeDistance(myPos, food) for food in reversed(foodList)])
     if features['enemyScaredTimer'] > 0:
-        features['distanceToFood'] = minDistance*10
+        features['distanceToFood'] = minDistance
     else:      
         features['distanceToFood'] = minDistance
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders1': -1000, 'invaderDistance1': -2, 'successorScore': 100, 'distanceToFood': -1, 'defenderDistance': 2, 'Ostop': -100, 'Oreverse': -2, 'enemyScaredTimer': 20}
+    return {'numInvaders1': -1000, 'invaderDistance1': -2, 'successorScore': 100, 'distanceToFood': -2, 'defenderDistance': 2, 'Ostop': -100, 'Oreverse': -2, 'enemyScaredTimer': 20}
+
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
   """
@@ -237,14 +227,32 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
-    self.patrolQueue = [] # Make a Queue of Locations already Patrolled
-
+    self.allEnemiesScared = 0
+    self.allEnemiesTooFarToDefend = 0
     myPos = gameState.getAgentState(self.index).getPosition()
     foodToDefend = self.getFoodYouAreDefending(gameState).asList() # Make a list of Locations to Patrol
-    farthestFood = self.findFarthest(myPos, foodToDefend)
-    self.patrolQueue.insert(0, farthestFood)
+
+    self.hotspots = util.Counter()
+    for loc in foodToDefend:
+      self.hotspots[loc] = self.getMazeDistance(myPos, loc)
     
+    self.hotspots.normalize()
+
   def chooseAction(self, gameState):
+    enemyIndex = self.getOpponents(gameState)
+    enemies = [gameState.getAgentState(i) for i in enemyIndex] # List of Enemy Agent States
+    
+    # Updates the hotspots if it is changed
+    for hotspot, value in self.hotspots.items():
+      if hotspot not in self.getFoodYouAreDefending(gameState).asList():
+        del self.hotspots[hotspot]
+        self.hotspots.normalize()
+
+    self.allEnemiesScared = 0
+    for e in enemies:
+      if e.scaredTimer > 0:
+        self.allEnemiesScared = 1
+
     actions = gameState.getLegalActions(self.index)
     values = [self.evaluate(gameState, a) for a in actions]
 
@@ -264,97 +272,99 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
-
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
 
-    # Computes whether we're on defense (1) or offense (0)
+    enemyIndex = self.getOpponents(successor)
+    enemies = [successor.getAgentState(i) for i in enemyIndex] # List of Enemy Agent States
+    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None] # List of Observable Invading Agent States
+    defenders = [a for a in enemies if not(a.isPacman) and a.getPosition() != None] # List of Observable Defending Agents
+    scaredDefenders = [d for d in defenders if d.scaredTimer > 1] # List of Defending Agents taht are scared
+    foodToDefendLocations = self.getFoodYouAreDefending(successor).asList() # Locations of Team Food
+
+
+    ######################
+    # UNIVERSAL FEATURES # 'onDefense', 'stop', 'reverse', 'succesorScore'
+    ######################
+    ## (1) When Agent is on Defense Side (0) When on the Offense Side
     features['onDefense'] = 1
     if myState.isPacman: features['onDefense'] = 0
 
-    # Computes distance to invaders we can see
-    enemyIndex = self.getOpponents(successor)
-    enemies = [successor.getAgentState(i) for i in enemyIndex]
-    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
-    defenders = [a for a in enemies if not (a.isPacman) and a.getPosition() != None]
-    features['numInvaders'] = len(invaders)
+    ## (1) When action is STOP (0) if not
+    if action == Directions.STOP: features['stop'] = 1 
+    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction] 
+    if action == rev: features['reverse'] = 1
 
-    noisyDist = [successor.getAgentDistances()[i] for i in enemyIndex]
+    ## The score if an action is taken
+    features['successorScore'] = self.getScore(successor)
 
+
+    ###################
+    # DEFEND FEATURES # 'numInvaders', 'invaderDistance'
+    ###################
+    ## Number of invaders seen by agents
+    features['numInvaders'] = len(invaders) 
+    
+    ## Computes distance of closest invader that our Agents can see
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
       features['invaderDistance'] = min(dists)
 
-
-    if action == Directions.STOP: features['stop'] = 1
-    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-    if action == rev: features['reverse'] = 1
-
-    # Compute FoodToDefend Locations
-    foodToDefendLocations = self.getFoodYouAreDefending(successor).asList()
-    features['FoodToDefend'] = len(foodToDefendLocations)
-
-
-
-    features['scaredTimer'] = myState.scaredTimer
-
-    # Compute ScaredTimer for this Agent and if scared, then just keep close enough to invader
+    ## Agent is to run from Invader if Scared but don't stray too far to lose sight 
     if myState.scaredTimer > 0:
-      # see if invader is 3 tiles away
-      if features['invaderDistance'] <= 4:
-        features['invaderDistance'] = -features['invaderDistance']
-
-    features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[-1])
-    if features['patrolDistance'] is 0:
-      self.patrolQueue.pop()
-      self.patrolQueue.insert(0, self.findClosest(myPos, foodToDefendLocations))
+        if features['invaderDistance'] <= 4:
+            features['invaderDistance'] = -features['invaderDistance']
 
 
-    temp = self.getOpponents(successor)    
-    enemyState = successor.getAgentState(temp[0])
+    ###################
+    # PATROL FEATURES # 'patrolDistance'
+    ###################
+    ## Gets the distance from the hottest hotspot
+    features['patrolDistance'] = self.getMazeDistance(myPos, self.hotspots.argMax())
 
-    allEnemiesScared = 0
-    allEnemiesTooFarToDefend = 0
-    for e in enemies:
-      if e.scaredTimer > 0:
-        allEnemiesScared = 1
 
-    if allEnemiesScared or allEnemiesTooFarToDefend:
+    ###################
+    # ATTACK FEATURES # 'foodDistance', 'scaredDistance', 'defenderDistance', 'capsuleDistance'
+    ###################
+    ## Initializes the Attack Phase
+    if self.allEnemiesScared:
+
+      ## Ignores Most Defensive Features
       features['onDefense'] = 0
       features['patrolDistance'] = 0
-      features['foodToDefend'] = 0
-      # Compute distance to the nearest food
-    foodList = self.getFood(successor).asList()
-    closestFood = self.findClosest(myPos, foodList)
-    self.debugDraw(closestFood, [1,0,0], True)
-    if (len(foodList) > 0): # This should always be True,  but better safe than sorry
-      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-      features['distanceToFood'] = minDistance
+      
+      ## Finds the closest food
+      foodList = self.getFood(successor).asList()
+      foodDists = [self.getMazeDistance(myPos, f) for f in foodList]
+      features['foodDistance'] = min(foodDists)
 
+      ## Finds the closest scared ghost distance
+      if len(scaredDefenders) > 0: 
+        scaredDefendersDists = [self.getMazeDistance(myPos, d.getPosition()) for d in scaredDefenders]
+        features['scaredDistance'] = min(scaredDefendersDists)
 
-    """
-    features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'patrolDistance', 'noisyDistance', 'distanceToFood']
-    """
+      ## Finds the closest defender ghost distance
+      if len(defenders) > 0:
+        defenderDists = [self.getMazeDistance(myPos, d.getPosition()) for d in defenders]
+        features['defenderDistance'] = min(defenderDists)
+
+      ## Finds the closest capsule
+      capsuleList = self.getCapsules(successor)
+      if len(capsuleList):
+        capsuleDists = [self.getMazeDistance(myPos, c) for c in capsuleList]
+        features['capsuleDistance'] = min(capsuleDists)
 
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -3, 'FoodToDefend': 50, 'patrolDistance': -1, 'distanceToFood': -1}
-
-  def findClosest(self, myPos, locations):
-    closestLocation = None
-    for l in locations:
-        if closestLocation is None or self.getMazeDistance(myPos, l) < self.getMazeDistance(myPos, closestLocation):
-          closestLocation = l
-    return closestLocation
-
-  def findFarthest(self, myPos, locations):
-    farthest = None
-    farthestDistance = None
-    for l in locations:
-      newDistance = self.getMazeDistance(myPos, l)
-
-      if farthestDistance is None or newDistance >= farthestDistance:
-        farthest = l
-        farthestDistance = newDistance
-    return farthest
+    return {'numInvaders': -1000, 
+            'onDefense': 100, 
+            'invaderDistance': -10,
+            'stop': -100,
+            'reverse': -4,
+            'patrolDistance': -1,
+            'foodDistance': -2,
+            'successorScore': 100,
+            'scaredDistance': -1, 
+            'defenderDistance': 1,
+            'capsuleDistance': -5}
