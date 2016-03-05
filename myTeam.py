@@ -262,13 +262,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     if myState.isPacman: features['onDefense'] = 0
 
     # Computes distance to invaders we can see
-    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    enemyIndex = self.getOpponents(successor)
+    enemies = [successor.getAgentState(i) for i in enemyIndex]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     defenders = [a for a in enemies if not (a.isPacman) and a.getPosition() != None]
     features['numInvaders'] = len(invaders)
 
-    #for o in self.getOpponents(successor):
-    #  print 'Enemy:', o, 'Noisy Distance:', successor.getAgentDistances()[o]
+    noisyDist = [successor.getAgentDistances()[i] for i in enemyIndex]
 
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
@@ -283,6 +283,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     foodToDefendLocations = self.getFoodYouAreDefending(successor).asList()
     features['FoodToDefend'] = len(foodToDefendLocations)
 
+
+
+    features['scaredTimer'] = myState.scaredTimer
+
     # Compute ScaredTimer for this Agent and if scared, then just keep close enough to invader
     if myState.scaredTimer > 0:
       # see if invader is 3 tiles away
@@ -294,14 +298,37 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       self.patrolQueue.pop()
       self.patrolQueue.insert(0, self.findClosest(myPos, foodToDefendLocations))
 
+
+    temp = self.getOpponents(successor)    
+    enemyState = successor.getAgentState(temp[0])
+
+    allEnemiesScared = 0
+    allEnemiesTooFarToDefend = 0
+    for e in enemies:
+      if e.scaredTimer > 0:
+        allEnemiesScared = 1
+
+    if allEnemiesScared or allEnemiesTooFarToDefend:
+      features['onDefense'] = 0
+      features['patrolDistance'] = 0
+      features['foodToDefend'] = 0
+      # Compute distance to the nearest food
+    foodList = self.getFood(successor).asList()
+    closestFood = self.findClosest(myPos, foodList)
+    self.debugDraw(closestFood, [1,0,0], True)
+    if (len(foodList) > 0): # This should always be True,  but better safe than sorry
+      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      features['distanceToFood'] = minDistance
+
+
     """
-    features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'patrolDistance']
+    features = ['onDefense', 'numInvaders', 'invaderDistance', 'stop', 'reverse', 'FoodToDefend', 'patrolDistance', 'noisyDistance', 'distanceToFood']
     """
 
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -3, 'FoodToDefend': 50, 'patrolDistance': -1}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -3, 'FoodToDefend': 50, 'patrolDistance': -1, 'distanceToFood': -1}
 
   def findClosest(self, myPos, locations):
     closestLocation = None
