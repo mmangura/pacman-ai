@@ -171,11 +171,11 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     #stays away from any ghost when a ghost
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     defenders = [a for a in enemies if not(a.isPacman) and a.getPosition() != None]
-
     features['numDefenders'] = len(defenders)
     if len(defenders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-      features['defenderDistance'] = min(dists)
+      if min(dists) < 5:
+        features['defenderDistance'] = min(dists)
 
     temp = self.getOpponents(successor)    
     enemyState = successor.getAgentState(temp[0])
@@ -190,6 +190,16 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
       features['invaderDistance2'] = min(dists)
+
+    #keeps distance away from enemy when scared
+    if myState.scaredTimer > 0:
+        if features['invaderDistance2'] <= 4:
+          features['invaderDistance2'] = -features['invaderDistance2']
+
+    if (features['invaderDistance2'] > 10 and myState.isPacman):
+      features['numInvaders2'] = 0
+      features['invaderDistance2'] = 0
+
 
 
     # Compute distance to the nearest food
