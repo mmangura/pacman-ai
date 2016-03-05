@@ -175,7 +175,7 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     features['numDefenders'] = len(defenders)
     if len(defenders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-      if min(dists) < 5: 
+      if min(dists) <= 5:
         features['defenderDistance'] = min(dists)
 
     temp = self.getOpponents(successor)    
@@ -286,9 +286,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     features['FoodToDefend'] = len(foodToDefendLocations)
 
 
-
     features['scaredTimer'] = myState.scaredTimer
-
     # Compute ScaredTimer for this Agent and if scared, then just keep close enough to invader
     if myState.scaredTimer > 0:
       # see if invader is 3 tiles away
@@ -304,7 +302,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     allEnemiesScared = 0
     allEnemiesTooFarToDefend = 0
     for e in enemies:
-      if (e.scaredTimer > 5 and not(e.isPacman)):
+      if (e.scaredTimer > 0 and not(e.isPacman)):
         allEnemiesScared = 1
 
     if allEnemiesScared or allEnemiesTooFarToDefend:
@@ -316,7 +314,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     closestFood = self.findClosest(myPos, foodList)
     self.debugDraw(closestFood, [1,0,0], True)
     if (len(foodList) > 0): # This should always be True,  but better safe than sorry
-      myPos = successor.getAgentState(self.index).getPosition()
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood1'] = minDistance
 
@@ -328,7 +325,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'FoodToDefend': 50, 'patrolDistance': -1, 'distanceToFood1': -2, 'successorScore1': 100}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'FoodToDefend': 50, 'patrolDistance': -2, 'distanceToFood1': -2, 'successorScore1': 50}
 
   def findClosest(self, myPos, locations):
     closestLocation = None
