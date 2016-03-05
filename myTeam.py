@@ -288,8 +288,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       # see if invader is 3 tiles away
       if features['invaderDistance'] <= 4:
         features['invaderDistance'] = -features['invaderDistance']
-        #features['stop'] = 0
-
 
     features['patrolDistance'] = self.getMazeDistance(myPos, self.patrolQueue[-1])
     if features['patrolDistance'] is 0:
