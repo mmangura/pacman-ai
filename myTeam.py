@@ -175,7 +175,8 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
     features['numDefenders'] = len(defenders)
     if len(defenders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-      features['defenderDistance'] = min(dists)
+      if min(dists) <= 5:
+        features['defenderDistance'] = min(dists)
 
     temp = self.getOpponents(successor)    
     enemyState = successor.getAgentState(temp[0])
@@ -201,20 +202,25 @@ class BaseOffensiveReflexAgent(ReflexCaptureAgent):
       features['invaderDistance1'] = 0
 
 
+    # Compute distance to the nearest food
+    capsuleList = self.getCapsules(successor)
+    if (len(capsuleList) > 0): # This should always be True,  but better safe than sorry
+      myPos = successor.getAgentState(self.index).getPosition()
+      minCapsuleDistance = min([self.getMazeDistance(myPos, capsule) for capsule in reversed(capsuleList)])
+      features['capsule'] = minCapsuleDistance
+      
+
 
     # Compute distance to the nearest food
     foodList = self.getFood(successor).asList()
     if (len(foodList) > 0): # This should always be True,  but better safe than sorry
       myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, food) for food in reversed(foodList)])
-    if features['enemyScaredTimer'] > 0:
-        features['distanceToFood'] = minDistance
-    else:      
-        features['distanceToFood'] = minDistance
+      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      features['distanceToFood'] = minDistance
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders1': -1000, 'invaderDistance1': -2, 'successorScore': 100, 'distanceToFood': -2, 'defenderDistance': 2, 'Ostop': -100, 'Oreverse': -2, 'enemyScaredTimer': 20}
+    return {'numInvaders1': -1000, 'invaderDistance1': -2, 'successorScore': 100, 'distanceToFood': -2, 'capsule': -2, 'defenderDistance': 2, 'Ostop': -100, 'Oreverse': -2, 'enemyScaredTimer': 20}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -309,7 +315,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     ## The score if an action is taken
     features['successorScore'] = self.getScore(successor)
 
-
     ###################
     # DEFEND FEATURES # 'numInvaders', 'invaderDistance'
     ###################
@@ -373,7 +378,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   def getWeights(self, gameState, action):
     return {'numInvaders': -1000, 
             'onDefense': 100, 
-            'invaderDistance': -20,
+            'invaderDistance': -10,
             'stop': -100,
             'reverse': -4,
             'patrolDistance': -1,
