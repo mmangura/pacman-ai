@@ -233,6 +233,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     foodToDefend = self.getFoodYouAreDefending(gameState).asList() # Make a list of Locations to Patrol
 
     self.hotspots = util.Counter()
+    self.suspiciousLocations = util.Stack()
+    self.currentSuspicion = None
+
     for loc in foodToDefend:
       self.hotspots[loc] = self.getMazeDistance(myPos, loc)
     
@@ -241,12 +244,20 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   def chooseAction(self, gameState):
     enemyIndex = self.getOpponents(gameState)
     enemies = [gameState.getAgentState(i) for i in enemyIndex] # List of Enemy Agent States
-    
-    # Updates the hotspots if it is changed
+    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None] # List of Enemy Invaders
+    myPos = gameState.getAgentState(self.index).getPosition() # Position of Agent
+
+    # Updates the hotspots and currentSuspicion if it is changed
     for hotspot, value in self.hotspots.items():
       if hotspot not in self.getFoodYouAreDefending(gameState).asList():
         del self.hotspots[hotspot]
+        self.currentSuspicion = hotspot
         self.hotspots.normalize()
+
+    # Updates current Suspicion if suspicion is relieved
+    if self.currentSuspicion is not None:
+      if self.getMazeDistance(myPos, self.currentSuspicion) is 0:
+        self.currentSuspicion = None
 
     self.allEnemiesScared = 0
     for e in enemies:
@@ -317,17 +328,20 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
 
     ###################
-    # PATROL FEATURES # 'patrolDistance'
+    # PATROL FEATURES # 'patrolDistance', 'suspiciousLocationDistance'
     ###################
     ## Gets the distance from the hottest hotspot
     features['patrolDistance'] = self.getMazeDistance(myPos, self.hotspots.argMax())
 
+    ## Gets the distance of the most recent food that disappeared. 
+    if self.currentSuspicion is not None:
+        features['suspiciousLocationDistance'] = self.getMazeDistance(myPos, self.currentSuspicion)
 
     ###################
     # ATTACK FEATURES # 'foodDistance', 'scaredDistance', 'defenderDistance', 'capsuleDistance'
     ###################
     ## Initializes the Attack Phase
-    if self.allEnemiesScared:
+    if self.allEnemiesScared and (features['successorScore'] > 0):
 
       ## Ignores Most Defensive Features
       features['onDefense'] = 0
@@ -359,12 +373,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   def getWeights(self, gameState, action):
     return {'numInvaders': -1000, 
             'onDefense': 100, 
-            'invaderDistance': -10,
+            'invaderDistance': -20,
             'stop': -100,
             'reverse': -4,
             'patrolDistance': -1,
-            'foodDistance': -2,
+            'foodDistance': -5,
             'successorScore': 100,
             'scaredDistance': -1, 
             'defenderDistance': 1,
-            'capsuleDistance': -5}
+            'capsuleDistance': -5,
+            'suspiciousLocationDistance': -3}
